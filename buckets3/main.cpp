@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
 	for (unsigned loop = 0; loop < 100; ++loop)
 	{
 
-	for (layout_t::typed_iterator<vertex_t> &it = l.query_type<vertex_t>(); !it.end(); ++it) {
+	for (layout_t::typed_iterator<vertex_t> it = l.query_type<vertex_t>(); !it.end(); ++it) {
 
 		vertex_t *v = const_cast<vertex_t*>(it.operator()());
 
