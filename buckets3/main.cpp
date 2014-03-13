@@ -348,6 +348,8 @@ int main(int argc, char *argv[]) {
 #ifndef _WIN32
 	likwid_markerClose();
 #endif
+#ifdef _WIN32
 	getchar();
+#endif
 	return 1;
 }
