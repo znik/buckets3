@@ -119,8 +119,41 @@ public:
 		}
 	}
 
+
 	void make_layout_3() {
 		printf("\nBUCKETS_NUM: %u\n", (unsigned)vbuckets.size());
+		// DEBUG
+		/*
+		for (unsigned n = 0; n < N; ++n) {
+			printf("====== QUERY #%u\n", n);
+			for (typename virtual_buckets_t::const_iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+				printf("BUCKET ---------\n");
+				const cluster_t &c = it->second;
+				for (unsigned i = 0; i < c.size(); ++i) {
+					c[i]->print();
+					printf("\n");
+				}
+			}
+		}
+		*/
+
+		struct _comparator {
+			const std::vector<f_clusterize> &clusterize;
+
+			_comparator(const std::vector<f_clusterize> &_clusterize) : clusterize(_clusterize) {};
+
+			bool operator() (dataitem_t *a, dataitem_t *b) {
+				for (unsigned i = 0; i < N; ++i) {
+					if (clusterize[i](a) != clusterize[i](b))
+						return clusterize[i](a) > clusterize[i](b);
+				}
+				return false;
+			}
+		} comparator(clusterize);
+
+		for (typename virtual_buckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+			std::sort(it->second.begin(), it->second.end(), comparator); 
+		}
 
 		size_t datatotal = 0;
 
@@ -584,7 +617,7 @@ private: // HELPER FUNCTIONS
 		signature_t<N> signature;
 		for (unsigned i = 0; i < N; ++i) {
 			unsigned proj_id = clusterize[i](di);
-			signature.u[i] = (proj_id /hashing);
+			signature.u[i] = (proj_id / hashing);
 		}
 		vbuckets[signature].push_back(di);
 	}

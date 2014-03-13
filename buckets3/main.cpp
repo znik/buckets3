@@ -21,12 +21,12 @@
 #endif
 
 
-#define NATIVE_ADJLIST
+//#define NATIVE_ADJLIST
 
 
 unsigned dataset = 10000;
 unsigned dataload = 1;
-unsigned hashing = 500000;
+unsigned hashing = 50000000;
 
 
 // Clusterize Functions
@@ -63,11 +63,30 @@ cluster_id cluster2(dataitem_t *i) {
 	return -1;
 }
 
+cluster_id cluster3(dataitem_t *i) {
+	edge_t *e;
+	vertex_t *v;
+
+	if (!!(e = i->get<edge_t>())) {
+		return e->src;
+	}
+
+	if (!!(v = i->get<vertex_t>())) {
+		return v->id;
+	}
+
+	assert(false && "wrong data item is passed to cluster2 function" && typeid(i).name());
+	return -1;
+}
+
 
 const f_clusterize f2[] = {cluster1, cluster2};
 typedef fmem<sizeof(f2)/sizeof(f2[0])> layout_t;
 layout_t l(f2);
 
+//const f_clusterize f2[] = {cluster3};
+//typedef fmem<sizeof(f2)/sizeof(f2[0])> layout_t;
+//layout_t l(f2);
 
 
 void load_data() {
@@ -197,7 +216,11 @@ int main(int argc, char *argv[]) {
 	if (argc >= 4) {
 		hashing = atoi(argv[3]);
 	}
-
+#ifdef NATIVE_ADJLIST
+	printf("*************** BASELINE *****************\n");
+#else
+	printf("*************** FRAMEWORK + ADJLIST ******\n");
+#endif
 	printf("DataSet size:%d\n", dataset);
 	printf("Iteration:%d\n", dataload);
 
@@ -225,7 +248,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		for (layout_t::typed_iterator<vertex_t> it =
-			 l.query_type<vertex_t>(1);
+			 l.query_type<vertex_t>(0);
 			 !it.end(); ++it) {
 			
 			vertex_t *v = const_cast<vertex_t*>(it.operator()());
@@ -246,6 +269,9 @@ int main(int argc, char *argv[]) {
 
 	time_t t1 = time(0);
 
+	void *prev = al2.vertices[0];
+	int irregularity = 0;
+
 #ifndef _WIN32
 	likwid_markerStartRegion("Execution");
 #endif
@@ -255,21 +281,41 @@ int main(int argc, char *argv[]) {
 
 		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
 		//printf("v=%X\n", al2->vertices[i]);	
-		//al2->vertices[i]->print();
+
+		//al2.vertices[i]->print();
+		if (prev > (void*)al2.vertices[i]) {
+			irregularity++;
+			//printf(" <<<<< ");
+		}
+		prev = al2.vertices[i];
+		//printf("\n");
 		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
 
 		int sum = 0;
 
 		for (unsigned j = 0; j < in_edges.size(); ++j) {
 			//printf("e=%X\n", in_edges[j]);
+			//in_edges[j]->print();
 			sum += in_edges[j]->val;
+			if (prev > (void*)in_edges[j]) {
+				irregularity++;
+				//printf(" <<<<< ");
+			}
+			prev = in_edges[j];
+			//printf("\n");
 		}
 		int count = out_edges.size();
 		for (unsigned j = 0; j < out_edges.size(); ++j) {
 			//printf("e=%X\n", out_edges[j]);
+			//out_edges[j]->print();
 			out_edges[j]->val = sum / count;
+			if (prev > (void*)out_edges[j]) {
+				irregularity++;
+				//printf(" <<<<< ");
+			}
+			prev = out_edges[j];
+			//printf("\n");
 		}
-
 	}
 #ifndef _WIN32
 	likwid_markerStopRegion("Execution");	
@@ -279,11 +325,11 @@ int main(int argc, char *argv[]) {
 //	printf("Graph summary:\nin_edges=%u\nout_edges=%u\n", in_ed, out_ed);
 
 	printf("Elapsed time: %lf\n", difftime(t2, t1));
-
+	printf("SUPER IRREGULARITY: %d\n", irregularity);
 
 #ifndef _WIN32
 	likwid_markerClose();
 #endif
-
+	getchar();
 	return 1;
 }
