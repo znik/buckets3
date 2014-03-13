@@ -273,14 +273,14 @@ int main(int argc, char *argv[]) {
 	unsigned in_ed = 0;
 	unsigned out_ed = 0;
 
-	unsigned vcount = al2.vertices.size();
+	const unsigned vcount = al2.vertices.size();
 	printf("vcount=%u\n", vcount);
 
 	time_t t1 = time(0);
 
 	void *prev = al2.vertices[0];
 	int irregularity = 0;
-
+	int *sums = new int[vcount];
 #ifndef _WIN32
 	likwid_markerStartRegion("Execution");
 #endif
@@ -305,7 +305,6 @@ int main(int argc, char *argv[]) {
 
 
 		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
-		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
 
 		int sum = 0;
 
@@ -326,10 +325,14 @@ int main(int argc, char *argv[]) {
 			printf("\n");
 #endif
 		}
+		sums[i] = sum;
 #ifdef _PRINT_LAYOUT
 		printf("--><---\n");
 #endif
-
+	}
+	
+	for (unsigned i = 0; i < vcount; ++i) {
+		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
 
 		int count = out_edges.size();
 		for (unsigned j = 0; j < out_edges.size(); ++j) {
@@ -337,7 +340,7 @@ int main(int argc, char *argv[]) {
 #ifdef _PRINT_LAYOUT
 			out_edges[j]->print();
 #endif
-			out_edges[j]->val = sum / count;
+			out_edges[j]->val = sums[i] / count;
 			if (prev > (void*)out_edges[j]) {
 				irregularity++;
 #ifdef _PRINT_LAYOUT

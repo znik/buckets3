@@ -33,7 +33,7 @@ struct adjlist2 {
 
 	void create_lists() { // O(|E||V|)
 		printf("SUMMARY\n|E|=%d\n|V|=%d\n", edges.size(), vertices.size());
-
+		// TODO: redo using maps and one cycle by vertex and two inside by vertices - filling the map
 		for (unsigned i = 0; i < edges.size(); ++i) {
 			int src_idx = 0, dst_idx = 0;
 			for (unsigned j = 0; j < vertices.size(); ++j) {
