@@ -25,6 +25,8 @@ const TCHAR *mappedFile = TEXT("mapped.file");
 extern unsigned hashing;
 
 
+#define _PRINT_LAYOUT
+
 // Every dataitem should be derived from this interface.
 struct dataitem_t {
 public:
@@ -108,7 +110,7 @@ public:
 
 		_add_dataitem_5(di);
 	};
-
+/*
 	void print() {
 		for (typename virtual_buckets_t::const_iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
 			const cluster_t &c = it->second;
@@ -118,24 +120,12 @@ public:
 			}
 		}
 	}
-
+*/
 
 	void make_layout_3() {
-		printf("\nBUCKETS_NUM: %u\n", (unsigned)vbuckets.size());
-		// DEBUG
-		/*
-		for (unsigned n = 0; n < N; ++n) {
-			printf("====== QUERY #%u\n", n);
-			for (typename virtual_buckets_t::const_iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
-				printf("BUCKET ---------\n");
-				const cluster_t &c = it->second;
-				for (unsigned i = 0; i < c.size(); ++i) {
-					c[i]->print();
-					printf("\n");
-				}
-			}
+		for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+			printf("\nBUCKETS_NUM: %u\n", (unsigned)it->second.size());
 		}
-		*/
 
 		struct _comparator {
 			const std::vector<f_clusterize> &clusterize;
@@ -143,6 +133,9 @@ public:
 			_comparator(const std::vector<f_clusterize> &_clusterize) : clusterize(_clusterize) {};
 
 			bool operator() (dataitem_t *a, dataitem_t *b) {
+				if (a->type_hash != b->type_hash)
+					return a->type_hash > b->type_hash;
+
 				for (unsigned i = 0; i < N; ++i) {
 					if (clusterize[i](a) != clusterize[i](b))
 						return clusterize[i](a) > clusterize[i](b);
@@ -151,9 +144,27 @@ public:
 			}
 		} comparator(clusterize);
 
-		for (typename virtual_buckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
-			std::sort(it->second.begin(), it->second.end(), comparator); 
+		for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+			for (typename virtual_buckets_t::iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
+				std::sort(it2->second.begin(), it2->second.end(), comparator);
+			}
 		}
+
+#ifdef _PRINT_LAYOUT
+		for (unsigned n = 0; n < N; ++n) {
+			for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+				printf("====== QUERY #%u\n", n);
+				for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
+					printf("BUCKET ---------\n");
+					const cluster_t &c = it2->second;
+					for (unsigned i = 0; i < c.size(); ++i) {
+						c[i]->print();
+						printf("\n");
+					}
+				}
+			}
+		}
+#endif
 
 		size_t datatotal = 0;
 
@@ -173,13 +184,14 @@ public:
 		size_t data_size = 0;
 		for (unsigned n = 0; n < N; ++n) {
 			size_t off_of_item = 0;
-
-			for (typename virtual_buckets_t::const_iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
-				const cluster_t &c = it->second;
-				for (unsigned i = 0; i < c.size(); ++i) {
-					maps[n][clusterize[n](c[i])][(unsigned)c[i]->type_hash].push_back(off_of_item);
-					types[(unsigned)c[i]->type_hash] = c[i]->type_size;
-					off_of_item += c[i]->type_size;
+			for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+				for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
+					const cluster_t &c = it2->second;
+					for (unsigned i = 0; i < c.size(); ++i) {
+						maps[n][clusterize[n](c[i])][(unsigned)c[i]->type_hash].push_back(off_of_item);
+						types[(unsigned)c[i]->type_hash] = c[i]->type_size;
+						off_of_item += c[i]->type_size;
+					}
 				}
 			}
 			if (data_size) {
@@ -338,21 +350,24 @@ public:
 		// Copy data items
 		char *data = layout + c_offset_dataitems;
 		size_t off_of_item = 0;
-		for (typename virtual_buckets_t::const_iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
-			const cluster_t &c = it->second;
-			for (unsigned i = 0; i < c.size(); ++i) {
-				memcpy(data + off_of_item, c[i], c[i]->type_size);
-				off_of_item += c[i]->type_size;
+		for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+			for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
+				const cluster_t &c = it2->second;
+				for (unsigned i = 0; i < c.size(); ++i) {
+					memcpy(data + off_of_item, c[i], c[i]->type_size);
+					off_of_item += c[i]->type_size;
+				}
 			}
 		}
-
 		assert(off_of_item == c_offset_file_end - c_offset_dataitems && "Data entries size does not match to pre-calculated size");
 
 		// Cleanup memory
-		for (typename virtual_buckets_t::const_iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
-			const cluster_t &c = it->second;
-			for (unsigned i = 0; i < c.size(); ++i) {
-				delete c[i];
+		for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+			for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
+				const cluster_t &c = it2->second;
+				for (unsigned i = 0; i < c.size(); ++i) {
+					delete c[i];
+				}
 			}
 		}
 		vbuckets.clear();
@@ -597,7 +612,8 @@ public:
 	}
 
 private: // VIRTUAL BUCKETING
-	virtual_buckets_t vbuckets;
+	typedef std::map<unsigned, virtual_buckets_t> hash_and_vbuckets_t;
+	hash_and_vbuckets_t vbuckets;
 
 	std::vector<f_clusterize> clusterize;
 
@@ -619,7 +635,7 @@ private: // HELPER FUNCTIONS
 			unsigned proj_id = clusterize[i](di);
 			signature.u[i] = (proj_id / hashing);
 		}
-		vbuckets[signature].push_back(di);
+		vbuckets[di->type_hash][signature].push_back(di);
 	}
 
 private: // AUX::DERIVIATION CHECKING

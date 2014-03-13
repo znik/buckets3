@@ -24,7 +24,7 @@
 //#define NATIVE_ADJLIST
 
 
-unsigned dataset = 10000;
+unsigned dataset = 20;
 unsigned dataload = 1;
 unsigned hashing = 50000000;
 
@@ -281,40 +281,58 @@ int main(int argc, char *argv[]) {
 
 		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
 		//printf("v=%X\n", al2->vertices[i]);	
-
-		//al2.vertices[i]->print();
+#ifdef _PRINT_LAYOUT
+		printf("--------------------------\n");
+		al2.vertices[i]->print();
+#endif
 		if (prev > (void*)al2.vertices[i]) {
 			irregularity++;
-			//printf(" <<<<< ");
+#ifdef _PRINT_LAYOUT
+			printf(" <<<<< ");
+#endif
 		}
 		prev = al2.vertices[i];
-		//printf("\n");
+#ifdef _PRINT_LAYOUT
+		printf("\n");
+#endif
 		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
 
 		int sum = 0;
 
 		for (unsigned j = 0; j < in_edges.size(); ++j) {
 			//printf("e=%X\n", in_edges[j]);
-			//in_edges[j]->print();
+#ifdef _PRINT_LAYOUT
+			in_edges[j]->print();
+#endif
 			sum += in_edges[j]->val;
 			if (prev > (void*)in_edges[j]) {
 				irregularity++;
-				//printf(" <<<<< ");
+#ifdef _PRINT_LAYOUT
+				printf(" <<<<< ");
+#endif
 			}
 			prev = in_edges[j];
-			//printf("\n");
+#ifdef _PRINT_LAYOUT
+			printf("\n");
+#endif
 		}
 		int count = out_edges.size();
 		for (unsigned j = 0; j < out_edges.size(); ++j) {
 			//printf("e=%X\n", out_edges[j]);
-			//out_edges[j]->print();
+#ifdef _PRINT_LAYOUT
+			out_edges[j]->print();
+#endif
 			out_edges[j]->val = sum / count;
 			if (prev > (void*)out_edges[j]) {
 				irregularity++;
-				//printf(" <<<<< ");
+#ifdef _PRINT_LAYOUT
+				printf(" <<<<< ");
+#endif
 			}
 			prev = out_edges[j];
-			//printf("\n");
+#ifdef _PRINT_LAYOUT
+			printf("\n");
+#endif
 		}
 	}
 #ifndef _WIN32
