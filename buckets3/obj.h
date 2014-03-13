@@ -18,10 +18,12 @@
 
 #include "layout.h"
 
-
 #ifdef _WIN32
 const TCHAR *mappedFile = TEXT("mapped.file");
 #endif
+
+extern unsigned hashing;
+
 
 // Every dataitem should be derived from this interface.
 struct dataitem_t {
@@ -53,6 +55,7 @@ namespace {
 	typedef std::map<cluster_id, cluster_t> clusters_t;
 	typedef std::map<size_t, clusters_t> clusters_and_types_t;
 	typedef std::vector<clusters_and_types_t> maps_t;
+	typedef std::map<void *, cluster_id> memory_cluster_t;
 };
 
 namespace {
@@ -72,16 +75,19 @@ class fmem {
 	typedef std::map<signature_t<N>, cluster_t> virtual_buckets_t;
 
 public:
+
 	fmem(const f_clusterize f[]) : layout(0) {
 		for (unsigned i = 0; i < N; ++i) {
 			clusterize.push_back(f[i]);
 		}
+		m_datasize = 0;
 	}
 
 	~fmem() {
 		if (0 != layout) {
 #ifndef _WIN32
-			free(layout);
+			delete [] layout;
+			//free(layout);
 #endif
 		}
 		// TODO: Unmap etc.
@@ -202,7 +208,8 @@ public:
 			free(layout);
 
 		datatotal += data_size;
-
+		m_datasize = data_size;
+		m_dataStarts = c_offset_dataitems;
 		size_t c_offset_file_end = datatotal;
 
 		// -> 0x0
@@ -225,7 +232,16 @@ public:
 		HANDLE hMapping = CreateFileMapping(hMapFile, 0, PAGE_READWRITE, 0, datatotal, 0);
 		layout = static_cast<char*>(MapViewOfFile(hMapping, FILE_MAP_ALL_ACCESS, 0, 0, datatotal));
 #else
-		layout = static_cast<char*>(malloc(datatotal));
+		printf("m_dataSize=%u, layout.size=%u\n", m_datasize, datatotal - m_datasize);
+		layout = new char[datatotal];
+		
+		//size_t ch = 20;
+		//size_t left = 0;
+		//while(left < datatotal - ch - 10) {
+		//	new (layout + left) char[ch]; 
+		//	left += ch;
+		//}
+		//layout = static_cast<char*>(malloc(datatotal));
 #endif
 		// Fill the file header
 		layout_file_header_begin *hdr = reinterpret_cast<layout_file_header_begin*>(layout);
@@ -342,8 +358,11 @@ public:
 
 		layout_file_header_end* hdr2 = reinterpret_cast<layout_file_header_end*>(reinterpret_cast<char*>(hdr) +
 			sizeof(*hdr) + hdr->dataitem_types_count * sizeof(item_type_desc_t));
-
+		
 		m_maps.resize(hdr2->distributions_count);
+
+		std::map<unsigned, std::map<unsigned, bool>> s_used[N];
+
 		for (int i = 0; i < hdr2->distributions_count; ++i) {
 			list_offset_t lvl2_list_off = hdr2->dist_list_offset[i];
 			list_t *lvl2_list = reinterpret_cast<list_t*>(reinterpret_cast<char*>(layout) + lvl2_list_off);
@@ -356,9 +375,19 @@ public:
 				for (int k = 0; k < lvl3_list->count; ++k) {
 
 					item_offset_t item_off = lvl3_list->items[k];
+					//printf("item_off=%u\n", item_off);
 					dataitem_t *item = reinterpret_cast<dataitem_t*>(reinterpret_cast<char*>(layout) + item_off);
-					m_maps[i][(unsigned)type_index->first][clusterize[i](item)].push_back(item);
-
+					
+					//dataitem_t *newItem = (dataitem_t*)new char[type_index->second];
+					//memcpy(newItem, item, type_index->second); 
+					cluster_id cid = clusterize[i](item);		
+					m_maps[i][(unsigned)type_index->first][cid].push_back(item/*newItem*/);
+					
+					if (s_used[i][(unsigned)type_index->first][cid] == 0) {
+						m_memOrder[i][(unsigned)type_index->first][(void*)item] = cid;
+						s_used[i][(unsigned)type_index->first][cid] = 1;
+					}
+					//printf("memOrder[%2u][%15u][%15X]=%15u\n", i, (unsigned)type_index->first, item, cid);
 					// i - query no,
 					// j / types.size() - cluster no
 					// type_index - type no
@@ -370,6 +399,18 @@ public:
 					type_index = m_types.begin();
 			}
 		}
+		// DEBUG
+/*
+		typename memory_cluster_t::iterator mcl = m_memOrder[0][m_kinds[1]].begin();
+		for (;mcl != m_memOrder[0][m_kinds[1]].end(); ++mcl) {
+			cluster_t &c = m_maps[0][m_kinds[1]][mcl->second];
+			printf("Cluster:____\n");
+			for (unsigned i = 0; i < c.size(); ++i) {
+				c[i]->print();
+			}
+		}
+*/
+
 		printf("Layout loaded.\n");
 	}
 
@@ -429,25 +470,31 @@ public:
 	class typed_iterator {
 
 	private: // iterative members
-		clusters_t::iterator cluster_it;
+		//clusters_t::iterator cluster_it;
+		memory_cluster_t::iterator cluster_it;
 		unsigned item_no;					// in cluster_t: 0 <= .. < cluster.size()
-
-
+		cluster_t *current_cluster;
 	private: // const props of the class
-		const clusters_t::const_iterator endIt;
+		const memory_cluster_t::const_iterator endIt;
+		fmem<N> &super;
+		unsigned query_no;
+		unsigned type_index;
 
-		typed_iterator(unsigned query_nbr, clusters_t::iterator sit, clusters_t::iterator end_it) :
-			cluster_it(sit), endIt(end_it), item_no(0) {
+		typed_iterator(fmem<N> &l, unsigned query_nbr, memory_cluster_t::iterator sit, memory_cluster_t::iterator end_it,
+			unsigned _type_index) :
+			cluster_it(sit), endIt(end_it), item_no(0), super(l), query_no(query_nbr), type_index(_type_index),
+			current_cluster(0) {
 
 			// End iterator
 			if (cluster_it == endIt)
 				return;
 			// TODO: lots of checks?
 			
-			// PERF: separate type lists! (Craig's suggestion)
-			while (cluster_it != endIt && cluster_it->second.size() == 0) {
+			while (cluster_it != endIt && super.m_maps[query_no][type_index][cluster_it->second].size() == 0) {
 				this->operator++();
 			}
+			if (cluster_it != endIt)
+				current_cluster = &super.m_maps[query_no][type_index][cluster_it->second]; 
 		};
 		friend class fmem<N>;
 	public:
@@ -458,13 +505,13 @@ public:
 //			assert(cluster_it != endIt && "iterator is out-of-range");
 //			assert(0 != cluster.size() && "zero iterator");
 
-			dataitem_t *di = cluster_it->second[item_no];
+			dataitem_t *di = current_cluster->at(item_no);
 //			assert(di->type_hash == typeid(Tn).hash_code() && "Incosistent data error");
 			return di->get_direct<Tn>();
 		};
 		void operator ++() {
 			// TODO: lots of checks
-			if (++item_no < cluster_it->second.size()) {
+			if (++item_no < current_cluster->size()) {
 				return;
 			}
 
@@ -473,9 +520,12 @@ public:
 			++cluster_it;
 			if (cluster_it == endIt)
 				return;
+
+			current_cluster = &super.m_maps[query_no][type_index][cluster_it->second]; 
 			
 			item_no = 0;
-			while (cluster_it != endIt && cluster_it->second.size() == 0) {
+			while (cluster_it != endIt && super.m_maps[query_no][type_index][cluster_it->second].size() == 0) {
+				// TODO: remove the recursion!
 				this->operator++();
 			}
 		};
@@ -487,15 +537,20 @@ public:
 		}
 	};
 
-	template <typename Tn>
-	typed_iterator<Tn> query_type(unsigned query_no = 0) {
+	void clearMaps() {
+		m_maps.clear();
+		//delete layout;
+	}
+
+	template <typename Tt>
+	typed_iterator<Tt> query_type(unsigned query_no = 0) {
 		std::vector<size_t>::const_iterator i = std::find(m_kinds.begin(), m_kinds.end(),
-			(unsigned)typeid(Tn).hash_code());
+			(unsigned)typeid(Tt).hash_code());
 		//assert(i != super.m_kinds.end() && "Queried type not found");
 		unsigned type_index = (unsigned)m_kinds[i - m_kinds.begin()];
 
-		return typed_iterator<Tn>(query_no, m_maps[query_no][type_index].begin(),
-			m_maps[query_no].at(type_index).end());
+		return typed_iterator<Tt>(*this, query_no, m_memOrder[query_no][type_index].begin(),
+			m_memOrder[query_no][type_index].end(), type_index);
 	}
 
 	template <typename Tn>
@@ -508,11 +563,6 @@ public:
 		return cluster_iterator<Tn>(*this, -1, cluster_t(), -1);
 	}
 
-	template <typename Tn>
-	typed_iterator<Tn> endt(unsigned query_no = 0) {
-		return typed_iterator<Tn>(*this, query_no, m_maps[query_no].end());
-	}
-
 private: // VIRTUAL BUCKETING
 	virtual_buckets_t vbuckets;
 
@@ -521,8 +571,11 @@ private: // VIRTUAL BUCKETING
 	// After loading
 	maps_t m_maps;
 	std::map<size_t, size_t> m_types;
+	std::map<unsigned, memory_cluster_t> m_memOrder[N];
 	std::vector<size_t> m_kinds;		// hashes in array
-
+public:
+	size_t m_datasize;
+	size_t m_dataStarts;
 private: // HELPER FUNCTIONS
 
 	void _add_dataitem_5(dataitem_t *di) {
@@ -531,7 +584,7 @@ private: // HELPER FUNCTIONS
 		signature_t<N> signature;
 		for (unsigned i = 0; i < N; ++i) {
 			unsigned proj_id = clusterize[i](di);
-			signature.u[i] = (proj_id /500000);
+			signature.u[i] = (proj_id /hashing);
 		}
 		vbuckets[signature].push_back(di);
 	}

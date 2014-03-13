@@ -13,35 +13,21 @@
 #include <time.h>
 
 #include "obj.h"
+#include "datatypes.h"
+#include "definitions.h"
 
 #ifndef _WIN32
 #include <likwid.h>
 #endif
 
 
-unsigned dataset = 100000;
+#define NATIVE_ADJLIST
+
+
+unsigned dataset = 10000;
 unsigned dataload = 1;
-unsigned hashing = 1;
+unsigned hashing = 500000;
 
-
-struct edge_t : public dataitem_t {
-	int src;
-	int dst;
-	int val;
-	edge_t(int a = 0, int b = 0, int v = 0) : src(a), dst(b), val(v) {};
-	void print() {
-		printf("E: %d->%d [0x%p]\n", src, dst, this);
-	}
-};
-
-struct vertex_t : public dataitem_t {
-	int id;
-	int val;
-	vertex_t(int a = 0, int b = 0) : id(a), val(b) {};
-	void print() {
-		printf("V: %d [0x%p]\n", id, this);
-	}
-};
 
 // Clusterize Functions
 // The idea of them is to return the same number for items that supposed to be accessed together.
@@ -83,6 +69,7 @@ typedef fmem<sizeof(f2)/sizeof(f2[0])> layout_t;
 layout_t l(f2);
 
 
+
 void load_data() {
 
 	std::ifstream fstream;
@@ -100,9 +87,9 @@ void load_data() {
 	unsigned nul;	
 	int percent = 0;
 
-	std::vector<unsigned> v;
-	
+	std::map<unsigned, bool> v;
 	unsigned counter = 0;
+	unsigned v_num = 0, e_num = 0;
 	while (std::getline(fstream, line) && counter++ < dataset) {
 		if (line.empty()) continue;
 
@@ -114,15 +101,18 @@ void load_data() {
 		e.dst = nul;
 		e.val = rand() % 40;
 		l.put(e);
-		if (v.end() == std::find(v.begin(), v.end(), e.src)) {
+		e_num++;
+		if (v[e.src] == 0) {
 			vertex_t v1(e.src, rand() % 40);
-			v.push_back(v1.id);
 			l.put(v1);
+			v[e.src] = 1;
+			v_num++;
 		}
-		if (v.end() == std::find(v.begin(), v.end(), e.dst)) {
+		if (v[e.dst] == 0) {
 			vertex_t v1(e.dst, rand() % 40);
-			v.push_back(v1.id);
 			l.put(v1);
+			v[e.dst] = 1;
+			v_num++;
 		}
 		std::streamoff length = fstream.tellg();
 		if (percent < int(100 * ((double)length) / end)) {
@@ -130,16 +120,73 @@ void load_data() {
 			printf("Bucketing: %d %%\r", percent);
 		}
 	}
+	printf("Data loaded: edges=%u, vertices=%u\n", e_num, v_num);
 	fstream.close();
 }
 
+
+void load_data_adjlist(adjlist2 &al2) {
+	std::ifstream fstream;
+	fstream.open("twitter_combined.txt");
+
+	if (!fstream.is_open()) {
+		assert(false && "Input file not found...");
+		return;
+	}
+	fstream.seekg (0, fstream.end);
+	std::streamoff end = fstream.tellg();
+	fstream.seekg (0, fstream.beg);
+
+	std::string line;
+	unsigned nul;	
+	int percent = 0;
+
+	std::map<unsigned, bool> v;
+	unsigned v_num = 0, e_num = 0;
+
+	unsigned counter = 0;
+	while (std::getline(fstream, line) && counter++ < dataset) {
+		if (line.empty()) continue;
+
+		std::stringstream ss(line);
+		edge_t e;
+		ss >> nul;
+		e.src = nul;
+		ss >> nul;
+		e.dst = nul;
+		e.val = rand() % 40;
+		al2.push(new edge_t(e));
+		e_num++;
+		if (v[e.src] == 0) {
+			vertex_t v1(e.src, rand() % 40);
+			al2.push(new vertex_t(v1));
+			v[e.src] = 1;
+			v_num++;
+		}
+		if (v[e.dst] == 0) {
+			vertex_t v1(e.dst, rand() % 40);
+			al2.push(new vertex_t(v1));
+			v[e.dst] = 1;
+			v_num++;
+		}
+
+		std::streamoff length = fstream.tellg();
+		if (percent < int(10000 * ((double)length) / end)) {
+			percent = int(10000 * ((double)length) / end);
+			printf("Bucketing: %d %%\r", percent);
+		}
+	}
+	printf("Data loaded: edges=%u, vertices=%u\n", e_num, v_num);
+
+	fstream.close();
+}
 
 int main(int argc, char *argv[]) {
 #ifndef _WIN32
 	likwid_markerInit();
 #endif
 	printf("Buckets3 running PageRank on 44Mb file\nFeb-Mar, 2014\nNik Zaborovsky\n");
-	printf("!@#: %d %s %s\n", argc, argv[0], argv[1]);
+	printf("!@#: %d %s %s\n", argc, argv[0], argv[1], argv[2]);
 
 	if (argc >= 2) {
 		dataset = atoi(argv[1]);
@@ -150,62 +197,94 @@ int main(int argc, char *argv[]) {
 	if (argc >= 4) {
 		hashing = atoi(argv[3]);
 	}
+#ifdef NATIVE_ADJLIST
+	printf("*************** ADJLIST (naive) ****************\n");
+#else
+	printf("************* BUCKETS + ADJLIST ****************\n");
+#endif
 	printf("DataSet size:%d\n", dataset);
 	printf("Iteration:%d\n", dataload);
+
+#ifndef NATIVE_ADJLIST
 	printf("Hashing coefficient:%d\n", hashing);
+#endif
+	
+	adjlist2 al2;
 
-//	load_data();
-//	l.make_layout_3();
+#ifdef NATIVE_ADJLIST
+	load_data_adjlist(al2);
+#else
+	load_data();
+	l.make_layout_3();
 	l.load_file();
+#endif
 
+#ifndef NATIVE_ADJLIST
+	{
+		for (layout_t::typed_iterator<edge_t> it =
+				 l.query_type<edge_t>(0);
+				 !it.end(); ++it) {
+			edge_t *e = const_cast<edge_t*>(it.operator()());
+			al2.push(e);
+		}
+
+		for (layout_t::typed_iterator<vertex_t> it =
+			 l.query_type<vertex_t>(1);
+			 !it.end(); ++it) {
+			
+			vertex_t *v = const_cast<vertex_t*>(it.operator()());
+			al2.push(v);
+		}		
+	}
+
+	l.clearMaps();
+#endif
+
+	al2.create_lists();
+
+	unsigned in_ed = 0;
+	unsigned out_ed = 0;
+
+	unsigned vcount = al2.vertices.size();
+	printf("vcount=%u\n", vcount);
 
 	time_t t1 = time(0);
-	unsigned in_ed = 0;
 
-	unsigned out_ed = 0;
 #ifndef _WIN32
 	likwid_markerStartRegion("Execution");
 #endif
+	for (unsigned loop = 0; loop < dataload; ++loop)
+	for (unsigned i = 0; i < vcount; ++i) {
 
-	layout_t::cluster_iterator<edge_t> it2(0);
-	layout_t::cluster_iterator<edge_t> it3(1);
 
-	for (unsigned loop = 0; loop < 100; ++loop)
-	{
-
-	for (layout_t::typed_iterator<vertex_t> it = l.query_type<vertex_t>(); !it.end(); ++it) {
-
-		vertex_t *v = const_cast<vertex_t*>(it.operator()());
-
-		l.go_to_cluster(it2, v);
-		l.go_to_cluster(it3, v);
+		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
+		//printf("v=%X\n", al2->vertices[i]);	
+		//al2->vertices[i]->print();
+		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
 
 		int sum = 0;
-		in_ed += it2.size();
 
-		for (; !it2.end(); ++it2) {
-			edge_t *e = it2.operator()();
-			sum += e->val;
+		for (unsigned j = 0; j < in_edges.size(); ++j) {
+			//printf("e=%X\n", in_edges[j]);
+			sum += in_edges[j]->val;
 		}
-	
-		out_ed += it3.size();
-		int count = it3.size();
-		for (; !it3.end(); ++it3) {
-			edge_t *e = it3.operator()();
-			e->val = sum / count;
+		int count = out_edges.size();
+		for (unsigned j = 0; j < out_edges.size(); ++j) {
+			//printf("e=%X\n", out_edges[j]);
+			out_edges[j]->val = sum / count;
 		}
-	}
+
 	}
 #ifndef _WIN32
 	likwid_markerStopRegion("Execution");	
-#endif	
+#endif
+
 	time_t t2 = time(0);
-	printf("Graph summary:\nin_edges=%u\nout_edges=%u\n", in_ed, out_ed);
+//	printf("Graph summary:\nin_edges=%u\nout_edges=%u\n", in_ed, out_ed);
 
 	printf("Elapsed time: %lf\n", difftime(t2, t1));
 
-#ifndef _WIN32
-#endif
+
 #ifndef _WIN32
 	likwid_markerClose();
 #endif
