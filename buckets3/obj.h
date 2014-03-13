@@ -144,7 +144,7 @@ public:
 			}
 		} comparator(clusterize);
 
-		for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+		for (typename hash_and_vbuckets_t::reverse_iterator it = vbuckets.rbegin(); vbuckets.rend() != it; ++it) {
 			for (typename virtual_buckets_t::iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
 				std::sort(it2->second.begin(), it2->second.end(), comparator);
 			}
@@ -184,7 +184,7 @@ public:
 		size_t data_size = 0;
 		for (unsigned n = 0; n < N; ++n) {
 			size_t off_of_item = 0;
-			for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+			for (typename hash_and_vbuckets_t::reverse_iterator it = vbuckets.rbegin(); vbuckets.rend() != it; ++it) {
 				for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
 					const cluster_t &c = it2->second;
 					for (unsigned i = 0; i < c.size(); ++i) {
@@ -350,7 +350,7 @@ public:
 		// Copy data items
 		char *data = layout + c_offset_dataitems;
 		size_t off_of_item = 0;
-		for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
+		for (typename hash_and_vbuckets_t::reverse_iterator it = vbuckets.rbegin(); vbuckets.rend() != it; ++it) {
 			for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
 				const cluster_t &c = it2->second;
 				for (unsigned i = 0; i < c.size(); ++i) {
