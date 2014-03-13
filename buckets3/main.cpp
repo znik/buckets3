@@ -21,7 +21,7 @@
 #endif
 
 
-#define NATIVE_ADJLIST
+//#define NATIVE_ADJLIST
 
 unsigned dataset = 100000;
 unsigned dataload = 1;
@@ -67,7 +67,7 @@ cluster_id cluster3(dataitem_t *i) {
 	vertex_t *v;
 
 	if (!!(e = i->get<edge_t>())) {
-		return e->src;
+		return e->dst;
 	}
 
 	if (!!(v = i->get<vertex_t>())) {
@@ -79,13 +79,13 @@ cluster_id cluster3(dataitem_t *i) {
 }
 
 
-const f_clusterize f2[] = {cluster1, cluster2};
-typedef fmem<sizeof(f2)/sizeof(f2[0])> layout_t;
-layout_t l(f2);
-
-//const f_clusterize f2[] = {cluster3};
+//const f_clusterize f2[] = {cluster1, cluster2};
 //typedef fmem<sizeof(f2)/sizeof(f2[0])> layout_t;
 //layout_t l(f2);
+
+const f_clusterize f2[] = {cluster3};
+typedef fmem<sizeof(f2)/sizeof(f2[0])> layout_t;
+layout_t l(f2);
 
 
 void load_data() {
