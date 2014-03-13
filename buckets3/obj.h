@@ -25,7 +25,7 @@ const TCHAR *mappedFile = TEXT("mapped.file");
 extern unsigned hashing;
 
 
-#define _PRINT_LAYOUT
+//#define _PRINT_LAYOUT
 
 // Every dataitem should be derived from this interface.
 struct dataitem_t {
@@ -133,8 +133,8 @@ public:
 			_comparator(const std::vector<f_clusterize> &_clusterize) : clusterize(_clusterize) {};
 
 			bool operator() (dataitem_t *a, dataitem_t *b) {
-				if (a->type_hash != b->type_hash)
-					return a->type_hash > b->type_hash;
+				//if (a->type_hash != b->type_hash)
+				//	return a->type_hash > b->type_hash;
 
 				for (unsigned i = 0; i < N; ++i) {
 					if (clusterize[i](a) != clusterize[i](b))
@@ -144,16 +144,17 @@ public:
 			}
 		} comparator(clusterize);
 
-		for (typename hash_and_vbuckets_t::reverse_iterator it = vbuckets.rbegin(); vbuckets.rend() != it; ++it) {
+		for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
 			for (typename virtual_buckets_t::iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
 				std::sort(it2->second.begin(), it2->second.end(), comparator);
 			}
 		}
 
+
+
+
 #ifdef _PRINT_LAYOUT
-		for (unsigned n = 0; n < N; ++n) {
 			for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
-				printf("====== QUERY #%u\n", n);
 				for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
 					printf("BUCKET ---------\n");
 					const cluster_t &c = it2->second;
@@ -163,7 +164,6 @@ public:
 					}
 				}
 			}
-		}
 #endif
 
 		size_t datatotal = 0;
@@ -184,6 +184,7 @@ public:
 		size_t data_size = 0;
 		for (unsigned n = 0; n < N; ++n) {
 			size_t off_of_item = 0;
+			// *Take vertices first*
 			for (typename hash_and_vbuckets_t::reverse_iterator it = vbuckets.rbegin(); vbuckets.rend() != it; ++it) {
 				for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
 					const cluster_t &c = it2->second;
@@ -430,7 +431,7 @@ public:
 					//memcpy(newItem, item, type_index->second); 
 					cluster_id cid = clusterize[i](item);		
 					m_maps[i][(unsigned)type_index->first][cid].push_back(item/*newItem*/);
-					
+					//@#$
 					if (s_used[i][(unsigned)type_index->first][cid] == 0) {
 						m_memOrder[i][(unsigned)type_index->first][(void*)item] = cid;
 						s_used[i][(unsigned)type_index->first][cid] = 1;
@@ -528,7 +529,8 @@ public:
 		unsigned query_no;
 		unsigned type_index;
 
-		typed_iterator(fmem<N> &l, unsigned query_nbr, memory_cluster_t::iterator sit, memory_cluster_t::iterator end_it,
+		typed_iterator(fmem<N> &l, unsigned query_nbr, memory_cluster_t::iterator sit,
+			memory_cluster_t::iterator end_it,
 			unsigned _type_index) :
 			cluster_it(sit), endIt(end_it), item_no(0), super(l), query_no(query_nbr), type_index(_type_index),
 			current_cluster(0) {
@@ -576,6 +578,8 @@ public:
 				// TODO: remove the recursion!
 				this->operator++();
 			}
+			printf("===== %u\n", cluster_it->first);
+
 		};
 		bool operator== (const typed_iterator& other) {
 			return cluster_it == other.cluster_it;

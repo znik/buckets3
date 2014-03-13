@@ -21,12 +21,11 @@
 #endif
 
 
-//#define NATIVE_ADJLIST
+#define NATIVE_ADJLIST
 
-
-unsigned dataset = 40;
+unsigned dataset = 100000;
 unsigned dataload = 1;
-unsigned hashing = 50000000;
+unsigned hashing = 5000000000;
 
 
 // Clusterize Functions
@@ -240,18 +239,28 @@ int main(int argc, char *argv[]) {
 
 #ifndef NATIVE_ADJLIST
 	{
+#ifdef _PRINT_LAYOUT
+		printf("HOW DATA IS PUT IN ADJLIST (ORDER)\n");
+#endif
 		for (layout_t::typed_iterator<edge_t> it =
 				 l.query_type<edge_t>(0);
 				 !it.end(); ++it) {
 			edge_t *e = const_cast<edge_t*>(it.operator()());
+#ifdef _PRINT_LAYOUT
+			e->print();
+			printf("\n");
+#endif
 			al2.push(e);
 		}
 
 		for (layout_t::typed_iterator<vertex_t> it =
 			 l.query_type<vertex_t>(0);
 			 !it.end(); ++it) {
-			
 			vertex_t *v = const_cast<vertex_t*>(it.operator()());
+#ifdef _PRINT_LAYOUT
+			v->print();
+			printf("\n");
+#endif
 			al2.push(v);
 		}		
 	}
@@ -277,12 +286,10 @@ int main(int argc, char *argv[]) {
 #endif
 	for (unsigned loop = 0; loop < dataload; ++loop)
 	for (unsigned i = 0; i < vcount; ++i) {
-
-
-		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
+		
 		//printf("v=%X\n", al2->vertices[i]);	
 #ifdef _PRINT_LAYOUT
-		printf("--------------------------\n");
+		printf("-------------------------------------------------------------\n");
 		al2.vertices[i]->print();
 #endif
 		if (prev > (void*)al2.vertices[i]) {
@@ -295,6 +302,9 @@ int main(int argc, char *argv[]) {
 #ifdef _PRINT_LAYOUT
 		printf("\n");
 #endif
+
+
+		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
 		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
 
 		int sum = 0;
@@ -316,6 +326,11 @@ int main(int argc, char *argv[]) {
 			printf("\n");
 #endif
 		}
+#ifdef _PRINT_LAYOUT
+		printf("--><---\n");
+#endif
+
+
 		int count = out_edges.size();
 		for (unsigned j = 0; j < out_edges.size(); ++j) {
 			//printf("e=%X\n", out_edges[j]);
@@ -348,8 +363,6 @@ int main(int argc, char *argv[]) {
 #ifndef _WIN32
 	likwid_markerClose();
 #endif
-#ifdef _WIN32
 	getchar();
-#endif
 	return 1;
 }

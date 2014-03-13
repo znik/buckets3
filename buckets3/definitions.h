@@ -51,6 +51,18 @@ struct adjlist2 {
 			in_edges[vertices[dst_idx]].push_back(edges[i]);
 			out_edges[vertices[src_idx]].push_back(edges[i]);
 		}
+
+		//for (std::map<vertex_t*, std::vector<edge_t*> >::iterator it = in_edges.begin(); in_edges.end() != it;
+		//	++it) {
+		//	std::sort(it->second.begin(), it->second.end());
+		//}
+
+		//for (std::map<vertex_t*, std::vector<edge_t*> >::iterator it = out_edges.begin(); out_edges.end() != it;
+		//	++it) {
+		//	std::sort(it->second.begin(), it->second.end());
+		//}
+
+
 		printf("|in_edges|=%d\n|out_edges|=%d\n", in_edges.size(), out_edges.size());
 	}
 
