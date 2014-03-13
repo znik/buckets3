@@ -1,4 +1,4 @@
-CXXFLAGS=-Wall -O3 -std=c++0x
+CXXFLAGS=-Wall -O3 -std=c++0x -w
 LIBS_PATHS=-L/usr/local/lib
 LIBS=-llikwid -pthread
 
