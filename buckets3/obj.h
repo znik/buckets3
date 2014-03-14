@@ -25,7 +25,7 @@ const TCHAR *mappedFile = TEXT("mapped.file");
 extern unsigned hashing;
 
 
-//#define _PRINT_LAYOUT
+#define _PRINT_LAYOUT
 
 // Every dataitem should be derived from this interface.
 struct dataitem_t {
@@ -64,6 +64,13 @@ namespace {
 	template<unsigned N>
 	struct signature_t {
 		unsigned u[N];
+
+		void print() const {
+			for (unsigned i = 0; i < N; ++i) {
+				printf("%u.", u[i]);
+			}
+			printf("\n");
+		}
 	};
 
 	template<unsigned N>
@@ -136,7 +143,7 @@ public:
 				//if (a->type_hash != b->type_hash)
 				//	return a->type_hash > b->type_hash;
 
-				for (unsigned i = 0; i < N; ++i) {
+				for (int i = N - 1; i >= 0; --i) {
 					if (clusterize[i](a) != clusterize[i](b))
 						return clusterize[i](a) > clusterize[i](b);
 				}
@@ -154,9 +161,12 @@ public:
 
 
 #ifdef _PRINT_LAYOUT
+			printf("LAYOUT:\n\n");
 			for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
-				for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
-					printf("BUCKET ---------\n");
+				for (typename virtual_buckets_t::iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
+					printf("---- BUCKET: ");
+					const signature_t<N> &s = it2->first;
+					s.print();
 					const cluster_t &c = it2->second;
 					for (unsigned i = 0; i < c.size(); ++i) {
 						c[i]->print();
@@ -637,7 +647,7 @@ private: // HELPER FUNCTIONS
 		signature_t<N> signature;
 		for (unsigned i = 0; i < N; ++i) {
 			unsigned proj_id = clusterize[i](di);
-			signature.u[i] = (proj_id / hashing);
+			signature.u[i] = (proj_id % hashing);
 		}
 		vbuckets[di->type_hash][signature].push_back(di);
 	}

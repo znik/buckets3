@@ -21,11 +21,11 @@
 #endif
 
 
-#define NATIVE_ADJLIST
+//#define NATIVE_ADJLIST
 
-unsigned dataset = 100000;
+unsigned dataset = 100;
 unsigned dataload = 1;
-unsigned hashing = 5000000000;
+unsigned hashing = 2;
 
 
 // Clusterize Functions
@@ -79,7 +79,7 @@ cluster_id cluster3(dataitem_t *i) {
 }
 
 
-const f_clusterize f2[] = {cluster1, cluster2};
+const f_clusterize f2[] = {cluster2, cluster1};
 typedef fmem<sizeof(f2)/sizeof(f2[0])> layout_t;
 layout_t l(f2);
 
@@ -280,7 +280,7 @@ int main(int argc, char *argv[]) {
 
 	void *prev = al2.vertices[0];
 	int irregularity = 0;
-	int *sums = new int[vcount];
+//	int *sums = new int[vcount];
 #ifndef _WIN32
 	likwid_markerStartRegion("Execution");
 #endif
@@ -325,13 +325,13 @@ int main(int argc, char *argv[]) {
 			printf("\n");
 #endif
 		}
-		sums[i] = sum;
+//		sums[i] = sum;
 #ifdef _PRINT_LAYOUT
 		printf("--><---\n");
 #endif
-	}
+//	}
 	
-	for (unsigned i = 0; i < vcount; ++i) {
+//	for (unsigned i = 0; i < vcount; ++i) {
 		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
 
 		int count = out_edges.size();
@@ -340,7 +340,7 @@ int main(int argc, char *argv[]) {
 #ifdef _PRINT_LAYOUT
 			out_edges[j]->print();
 #endif
-			out_edges[j]->val = sums[i] / count;
+			out_edges[j]->val = sum/*s[i]*/ / count;
 			if (prev > (void*)out_edges[j]) {
 				irregularity++;
 #ifdef _PRINT_LAYOUT
