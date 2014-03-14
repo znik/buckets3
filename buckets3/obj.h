@@ -646,7 +646,7 @@ private: // HELPER FUNCTIONS
 		signature_t<N> signature;
 		for (unsigned i = 0; i < N; ++i) {
 			unsigned proj_id = clusterize[i](di);
-			signature.u[i] = (proj_id % hashing);
+			signature.u[i] = (proj_id / hashing);
 		}
 		vbuckets[di->type_hash][signature].push_back(di);
 	}

@@ -22,7 +22,7 @@
 #endif
 
 
-#define NATIVE_ADJLIST
+//#define NATIVE_ADJLIST
 
 unsigned dataset = 10000;
 unsigned dataload = 1;
@@ -241,8 +241,19 @@ int main(int argc, char *argv[]) {
 #ifndef NATIVE_ADJLIST
 	{
 #ifdef _PRINT_LAYOUT
-		printf("HOW DATA IS PUT IN ADJLIST (ORDER)\n");
+		printf("HOW DATA IS PUT TO ADJLIST (ORDER)\n");
 #endif
+		for (layout_t::typed_iterator<vertex_t> it =
+			 l.query_type<vertex_t>(0);
+			 !it.end(); ++it) {
+			vertex_t *v = const_cast<vertex_t*>(it.operator()());
+#ifdef _PRINT_LAYOUT
+			v->print();
+			printf("\n");
+#endif
+			al2.push(v);
+		}		
+
 		for (layout_t::typed_iterator<edge_t> it =
 				 l.query_type<edge_t>(0);
 				 !it.end(); ++it) {
@@ -254,16 +265,6 @@ int main(int argc, char *argv[]) {
 			al2.push(e);
 		}
 
-		for (layout_t::typed_iterator<vertex_t> it =
-			 l.query_type<vertex_t>(0);
-			 !it.end(); ++it) {
-			vertex_t *v = const_cast<vertex_t*>(it.operator()());
-#ifdef _PRINT_LAYOUT
-			v->print();
-			printf("\n");
-#endif
-			al2.push(v);
-		}		
 	}
 
 	l.clearMaps();
