@@ -31,9 +31,40 @@ struct adjlist2 {
 		edges.push_back(e);
 	}
 
-	void create_lists() { // O(|E||V|)
+	void create_lists() { // O(|E| + |V| log|E|)
 		printf("SUMMARY\n|E|=%d\n|V|=%d\n", edges.size(), vertices.size());
 		// TODO: redo using maps and one cycle by vertex and two inside by vertices - filling the map
+	
+		std::map<unsigned, edge_t*> edge_by_src;
+		std::map<unsigned, edge_t*> edge_by_dst;
+
+		for (unsigned i = 0; i < edges.size(); ++i) {
+			edge_by_src[edges[i]->src] = edges[i];
+			edge_by_dst[edges[i]->dst] = edges[i];
+		}
+
+		for (unsigned i = 0; i < vertices.size(); ++i) {
+			if (edge_by_dst[vertices[i]->id])
+				in_edges[vertices[i]].push_back(edge_by_dst[vertices[i]->id]);
+			if (edge_by_src[vertices[i]->id])
+				out_edges[vertices[i]].push_back(edge_by_src[vertices[i]->id]);			
+		}
+/*
+		for (unsigned i = 0; i < edges.size(); ++i) {
+			int two = 2;
+			for (unsigned j = 0; j < vertices.size() && two > 0; ++j) {
+				if (vertices[j]->id == edges[i]->src) {
+					in_edges[vertices[j]].push_back(edges[i]);
+					--two;
+				}
+				if (vertices[j]->id == edges[i]->dst) {
+					out_edges[vertices[j]].push_back(edges[i]);
+					--two;
+				}
+			}
+		}
+*/
+/*
 		for (unsigned i = 0; i < edges.size(); ++i) {
 			int src_idx = 0, dst_idx = 0;
 			for (unsigned j = 0; j < vertices.size(); ++j) {
@@ -51,17 +82,7 @@ struct adjlist2 {
 			in_edges[vertices[dst_idx]].push_back(edges[i]);
 			out_edges[vertices[src_idx]].push_back(edges[i]);
 		}
-
-		//for (std::map<vertex_t*, std::vector<edge_t*> >::iterator it = in_edges.begin(); in_edges.end() != it;
-		//	++it) {
-		//	std::sort(it->second.begin(), it->second.end());
-		//}
-
-		//for (std::map<vertex_t*, std::vector<edge_t*> >::iterator it = out_edges.begin(); out_edges.end() != it;
-		//	++it) {
-		//	std::sort(it->second.begin(), it->second.end());
-		//}
-
+*/
 
 		printf("|in_edges|=%d\n|out_edges|=%d\n", in_edges.size(), out_edges.size());
 	}
