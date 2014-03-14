@@ -25,7 +25,7 @@ const TCHAR *mappedFile = TEXT("mapped.file");
 extern unsigned hashing;
 
 
-#define _PRINT_LAYOUT
+//#define _PRINT_LAYOUT
 
 // Every dataitem should be derived from this interface.
 struct dataitem_t {
@@ -588,7 +588,6 @@ public:
 				// TODO: remove the recursion!
 				this->operator++();
 			}
-			printf("===== %u\n", cluster_it->first);
 
 		};
 		bool operator== (const typed_iterator& other) {
