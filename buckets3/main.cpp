@@ -13,6 +13,7 @@
 #include <time.h>
 
 #include "obj.h"
+#include "counter.h"
 #include "datatypes.h"
 #include "definitions.h"
 
@@ -21,9 +22,9 @@
 #endif
 
 
-//#define NATIVE_ADJLIST
+#define NATIVE_ADJLIST
 
-unsigned dataset = 100;
+unsigned dataset = 10000;
 unsigned dataload = 1;
 unsigned hashing = 2;
 
@@ -278,76 +279,46 @@ int main(int argc, char *argv[]) {
 
 	time_t t1 = time(0);
 
-	void *prev = al2.vertices[0];
-	int irregularity = 0;
-//	int *sums = new int[vcount];
 #ifndef _WIN32
 	likwid_markerStartRegion("Execution");
 #endif
 	for (unsigned loop = 0; loop < dataload; ++loop)
 	for (unsigned i = 0; i < vcount; ++i) {
 		
-		//printf("v=%X\n", al2->vertices[i]);	
 #ifdef _PRINT_LAYOUT
 		printf("-------------------------------------------------------------\n");
 		al2.vertices[i]->print();
+		scounter.ref((size_t)al2.vertices[i]);
 #endif
-		if (prev > (void*)al2.vertices[i]) {
-			irregularity++;
-#ifdef _PRINT_LAYOUT
-			printf(" <<<<< ");
-#endif
-		}
-		prev = al2.vertices[i];
 #ifdef _PRINT_LAYOUT
 		printf("\n");
 #endif
-
-
 		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
-
 		int sum = 0;
 
 		for (unsigned j = 0; j < in_edges.size(); ++j) {
-			//printf("e=%X\n", in_edges[j]);
 #ifdef _PRINT_LAYOUT
 			in_edges[j]->print();
+			scounter.ref((size_t)in_edges[j]);
 #endif
 			sum += in_edges[j]->val;
-			if (prev > (void*)in_edges[j]) {
-				irregularity++;
-#ifdef _PRINT_LAYOUT
-				printf(" <<<<< ");
-#endif
-			}
-			prev = in_edges[j];
 #ifdef _PRINT_LAYOUT
 			printf("\n");
 #endif
 		}
-//		sums[i] = sum;
 #ifdef _PRINT_LAYOUT
 		printf("--><---\n");
 #endif
-//	}
-	
-//	for (unsigned i = 0; i < vcount; ++i) {
 		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
 
 		int count = out_edges.size();
 		for (unsigned j = 0; j < out_edges.size(); ++j) {
-			//printf("e=%X\n", out_edges[j]);
+
 #ifdef _PRINT_LAYOUT
 			out_edges[j]->print();
+			scounter.ref((size_t)out_edges[j]);
 #endif
-			out_edges[j]->val = sum/*s[i]*/ / count;
-			if (prev > (void*)out_edges[j]) {
-				irregularity++;
-#ifdef _PRINT_LAYOUT
-				printf(" <<<<< ");
-#endif
-			}
-			prev = out_edges[j];
+			out_edges[j]->val = sum / count;
 #ifdef _PRINT_LAYOUT
 			printf("\n");
 #endif
@@ -358,11 +329,9 @@ int main(int argc, char *argv[]) {
 #endif
 
 	time_t t2 = time(0);
-//	printf("Graph summary:\nin_edges=%u\nout_edges=%u\n", in_ed, out_ed);
 
 	printf("Elapsed time: %lf\n", difftime(t2, t1));
-	printf("SUPER IRREGULARITY: %d\n", irregularity);
-
+	scounter.print_summary();
 #ifndef _WIN32
 	likwid_markerClose();
 #endif
