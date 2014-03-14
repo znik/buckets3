@@ -24,7 +24,7 @@
 
 //#define NATIVE_ADJLIST
 
-unsigned dataset = 10000;
+unsigned dataset = 1000;
 unsigned dataload = 1;
 unsigned hashing = 2;
 

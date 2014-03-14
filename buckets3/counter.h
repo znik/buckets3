@@ -3,9 +3,11 @@
 */
 #pragma once
 
+#include "obj.h"
 #include <vector>
 
 #define PROXIMITY_SIZE		64
+#define STREAM_COUNT		10
 
 static struct _scounter {
 	void ref(size_t addr) {
@@ -22,7 +24,9 @@ static struct _scounter {
 		new_sdt.last_address = addr;
 		new_sdt.accesses_number = 1;
 		streams.push_back(new_sdt);
+#ifdef _PRINT_LAYOUT
 		printf("// <-------- NEW STREAM DETECTED!!\n");
+#endif
 	}
 
 	void print_summary() {
@@ -37,6 +41,7 @@ static struct _scounter {
 	}
 
 private:
+	
 	struct stream_d_t {
 		size_t last_address;
 		unsigned accesses_number;

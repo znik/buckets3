@@ -25,7 +25,7 @@ const TCHAR *mappedFile = TEXT("mapped.file");
 extern unsigned hashing;
 
 
-#define _PRINT_LAYOUT
+//#define _PRINT_LAYOUT
 
 // Every dataitem should be derived from this interface.
 struct dataitem_t {
@@ -57,7 +57,6 @@ namespace {
 	typedef std::map<cluster_id, cluster_t> clusters_t;
 	typedef std::map<size_t, clusters_t> clusters_and_types_t;
 	typedef std::vector<clusters_and_types_t> maps_t;
-	typedef std::map<void *, cluster_id> memory_cluster_t;
 };
 
 namespace {
@@ -419,9 +418,6 @@ public:
 			sizeof(*hdr) + hdr->dataitem_types_count * sizeof(item_type_desc_t));
 		
 		m_maps.resize(hdr2->distributions_count);
-
-		std::map<unsigned, std::map<unsigned, bool>> s_used[N];
-
 		for (int i = 0; i < hdr2->distributions_count; ++i) {
 			list_offset_t lvl2_list_off = hdr2->dist_list_offset[i];
 			list_t *lvl2_list = reinterpret_cast<list_t*>(reinterpret_cast<char*>(layout) + lvl2_list_off);
@@ -441,12 +437,7 @@ public:
 					//memcpy(newItem, item, type_index->second); 
 					cluster_id cid = clusterize[i](item);		
 					m_maps[i][(unsigned)type_index->first][cid].push_back(item/*newItem*/);
-					//@#$
-					if (s_used[i][(unsigned)type_index->first][cid] == 0) {
-						m_memOrder[i][(unsigned)type_index->first][(void*)item] = cid;
-						s_used[i][(unsigned)type_index->first][cid] = 1;
-					}
-					//printf("memOrder[%2u][%15u][%15X]=%15u\n", i, (unsigned)type_index->first, item, cid);
+
 					// i - query no,
 					// j / types.size() - cluster no
 					// type_index - type no
@@ -458,17 +449,6 @@ public:
 					type_index = m_types.begin();
 			}
 		}
-		// DEBUG
-/*
-		typename memory_cluster_t::iterator mcl = m_memOrder[0][m_kinds[1]].begin();
-		for (;mcl != m_memOrder[0][m_kinds[1]].end(); ++mcl) {
-			cluster_t &c = m_maps[0][m_kinds[1]][mcl->second];
-			printf("Cluster:____\n");
-			for (unsigned i = 0; i < c.size(); ++i) {
-				c[i]->print();
-			}
-		}
-*/
 
 		printf("Layout loaded.\n");
 	}
@@ -530,31 +510,23 @@ public:
 
 	private: // iterative members
 		//clusters_t::iterator cluster_it;
-		memory_cluster_t::iterator cluster_it;
+		clusters_t::iterator cluster_it;
 		unsigned item_no;					// in cluster_t: 0 <= .. < cluster.size()
-		cluster_t *current_cluster;
 	private: // const props of the class
-		const memory_cluster_t::const_iterator endIt;
-		fmem<N> &super;
-		unsigned query_no;
-		unsigned type_index;
+		const clusters_t::const_iterator endIt;
 
-		typed_iterator(fmem<N> &l, unsigned query_nbr, memory_cluster_t::iterator sit,
-			memory_cluster_t::iterator end_it,
-			unsigned _type_index) :
-			cluster_it(sit), endIt(end_it), item_no(0), super(l), query_no(query_nbr), type_index(_type_index),
-			current_cluster(0) {
+		typed_iterator(unsigned query_nbr, clusters_t::iterator sit,
+			clusters_t::iterator end_it) :
+			cluster_it(sit), endIt(end_it), item_no(0){
 
 			// End iterator
 			if (cluster_it == endIt)
 				return;
 			// TODO: lots of checks?
 			
-			while (cluster_it != endIt && super.m_maps[query_no][type_index][cluster_it->second].size() == 0) {
+			while (cluster_it != endIt && cluster_it->second.size() == 0) {
 				this->operator++();
 			}
-			if (cluster_it != endIt)
-				current_cluster = &super.m_maps[query_no][type_index][cluster_it->second]; 
 		};
 		friend class fmem<N>;
 	public:
@@ -565,13 +537,13 @@ public:
 //			assert(cluster_it != endIt && "iterator is out-of-range");
 //			assert(0 != cluster.size() && "zero iterator");
 
-			dataitem_t *di = current_cluster->at(item_no);
+			dataitem_t *di = cluster_it->second[item_no];
 //			assert(di->type_hash == typeid(Tn).hash_code() && "Incosistent data error");
 			return di->get_direct<Tn>();
 		};
 		void operator ++() {
 			// TODO: lots of checks
-			if (++item_no < current_cluster->size()) {
+			if (++item_no < cluster_it->second.size()) {
 				return;
 			}
 
@@ -580,11 +552,9 @@ public:
 			++cluster_it;
 			if (cluster_it == endIt)
 				return;
-
-			current_cluster = &super.m_maps[query_no][type_index][cluster_it->second]; 
 			
 			item_no = 0;
-			while (cluster_it != endIt && super.m_maps[query_no][type_index][cluster_it->second].size() == 0) {
+			while (cluster_it != endIt && cluster_it->second.size() == 0) {
 				// TODO: remove the recursion!
 				this->operator++();
 			}
@@ -610,8 +580,8 @@ public:
 		//assert(i != super.m_kinds.end() && "Queried type not found");
 		unsigned type_index = (unsigned)m_kinds[i - m_kinds.begin()];
 
-		return typed_iterator<Tt>(*this, query_no, m_memOrder[query_no][type_index].begin(),
-			m_memOrder[query_no][type_index].end(), type_index);
+		return typed_iterator<Tt>(query_no, m_maps[query_no][type_index].begin(),
+			m_maps[query_no][type_index].end());
 	}
 
 	template <typename Tn>
@@ -633,7 +603,6 @@ private: // VIRTUAL BUCKETING
 	// After loading
 	maps_t m_maps;
 	std::map<size_t, size_t> m_types;
-	std::map<unsigned, memory_cluster_t> m_memOrder[N];
 	std::vector<size_t> m_kinds;		// hashes in array
 public:
 	size_t m_datasize;
