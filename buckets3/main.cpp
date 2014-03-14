@@ -24,9 +24,9 @@
 
 //#define NATIVE_ADJLIST
 
-unsigned dataset = 10000;
+unsigned dataset = 10;
 unsigned dataload = 1;
-unsigned hashing = 2;
+unsigned hashing = 50000000000;
 
 
 // Clusterize Functions
@@ -294,15 +294,15 @@ int main(int argc, char *argv[]) {
 #ifdef _PRINT_LAYOUT
 		printf("\n");
 #endif
-		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
+		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
 		int sum = 0;
 
-		for (unsigned j = 0; j < in_edges.size(); ++j) {
+		for (unsigned j = 0; j < out_edges.size(); ++j) {
 #ifdef _PRINT_LAYOUT
-			in_edges[j]->print();
-			scounter.ref((size_t)in_edges[j]);
+			out_edges[j]->print();
+			scounter.ref((size_t)out_edges[j]);
 #endif
-			sum += in_edges[j]->val;
+			sum += out_edges[j]->val;
 #ifdef _PRINT_LAYOUT
 			printf("\n");
 #endif
@@ -310,16 +310,16 @@ int main(int argc, char *argv[]) {
 #ifdef _PRINT_LAYOUT
 		printf("--><---\n");
 #endif
-		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
+		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
 
-		int count = out_edges.size();
-		for (unsigned j = 0; j < out_edges.size(); ++j) {
+		int count = in_edges.size();
+		for (unsigned j = 0; j < in_edges.size(); ++j) {
 
 #ifdef _PRINT_LAYOUT
-			out_edges[j]->print();
-			scounter.ref((size_t)out_edges[j]);
+			in_edges[j]->print();
+			scounter.ref((size_t)in_edges[j]);
 #endif
-			out_edges[j]->val = sum / count;
+			in_edges[j]->val = sum / count;
 #ifdef _PRINT_LAYOUT
 			printf("\n");
 #endif
