@@ -243,12 +243,20 @@ int main(int argc, char *argv[]) {
 #ifdef _PRINT_LAYOUT
 		printf("HOW DATA IS PUT TO ADJLIST (ORDER)\n");
 #endif
+		std::map<unsigned, vertex_t*> vertex_by_id;
+		for (layout_t::typed_iterator<vertex_t> it =
+				 l.query_type<vertex_t>(0);
+				 !it.end(); ++it) {
+			vertex_t *v = const_cast<vertex_t*>(it.operator()());
+			vertex_by_id[v->id] = v;
+		}
+
 		for (layout_t::typed_iterator<edge_t> it =
 			 l.query_type<edge_t>(0);
 			 !it.end(); ++it) {
 			edge_t *e = const_cast<edge_t*>(it.operator()());
 			// DIRTY HACK #231433: choose the right order!
-			vertex_t *v = new vertex_t(e->dst, 40 % rand());
+			vertex_t *v = vertex_by_id[e->dst];
 #ifdef _PRINT_LAYOUT
 			v->print();
 			printf("\n");

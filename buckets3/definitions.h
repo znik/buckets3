@@ -35,19 +35,19 @@ struct adjlist2 {
 		printf("SUMMARY\n|E|=%d\n|V|=%d\n", edges.size(), vertices.size());
 		// TODO: redo using maps and one cycle by vertex and two inside by vertices - filling the map
 	
-		std::map<unsigned, edge_t*> edge_by_src;
-		std::map<unsigned, edge_t*> edge_by_dst;
+		std::map<unsigned, std::vector<edge_t*>> edge_by_src;
+		std::map<unsigned, std::vector<edge_t*>> edge_by_dst;
 
 		for (unsigned i = 0; i < edges.size(); ++i) {
-			edge_by_src[edges[i]->src] = edges[i];
-			edge_by_dst[edges[i]->dst] = edges[i];
+			edge_by_src[edges[i]->src].push_back(edges[i]);
+			edge_by_dst[edges[i]->dst].push_back(edges[i]);
 		}
 
 		for (unsigned i = 0; i < vertices.size(); ++i) {
-			if (edge_by_dst[vertices[i]->id])
-				in_edges[vertices[i]].push_back(edge_by_dst[vertices[i]->id]);
-			if (edge_by_src[vertices[i]->id])
-				out_edges[vertices[i]].push_back(edge_by_src[vertices[i]->id]);			
+			for (unsigned j = 0; j < edge_by_dst[vertices[i]->id].size(); ++j)
+				in_edges[vertices[i]].push_back(edge_by_dst[vertices[i]->id][j]);
+			for (unsigned j = 0; j < edge_by_src[vertices[i]->id].size(); ++j)
+				out_edges[vertices[i]].push_back(edge_by_src[vertices[i]->id][j]);			
 		}
 /*
 		for (unsigned i = 0; i < edges.size(); ++i) {

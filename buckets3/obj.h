@@ -162,7 +162,7 @@ public:
 #ifdef _PRINT_LAYOUT
 			printf("LAYOUT:\n\n");
 			for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
-				for (typename virtual_buckets_t::iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
+				for (typename virtual_buckets_t::reverse_iterator it2 = it->second.rbegin(); it->second.rend() != it2; ++it2) {
 					printf("---- BUCKET: ");
 					const signature_t<N> &s = it2->first;
 					s.print();
@@ -195,7 +195,7 @@ public:
 			size_t off_of_item = 0;
 			// *Take vertices first*
 			for (typename hash_and_vbuckets_t::reverse_iterator it = vbuckets.rbegin(); vbuckets.rend() != it; ++it) {
-				for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
+				for (typename virtual_buckets_t::const_reverse_iterator it2 = it->second.rbegin(); it->second.rend() != it2; ++it2) {
 					const cluster_t &c = it2->second;
 					for (unsigned i = 0; i < c.size(); ++i) {
 						maps[n][clusterize[n](c[i])][(unsigned)c[i]->type_hash].push_back(off_of_item);
@@ -364,7 +364,7 @@ public:
 		char *data = layout + c_offset_dataitems;
 		size_t off_of_item = 0;
 		for (typename hash_and_vbuckets_t::reverse_iterator it = vbuckets.rbegin(); vbuckets.rend() != it; ++it) {
-			for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
+			for (typename virtual_buckets_t::const_reverse_iterator it2 = it->second.rbegin(); it->second.rend() != it2; ++it2) {
 				const cluster_t &c = it2->second;
 				for (int i = c.size() - 1; i >= 0 ; --i) {
 					memcpy(data + off_of_item, c[i], c[i]->type_size);
@@ -464,6 +464,7 @@ public:
 		}
 
 		// SORTING OF DATA ITEMS INSIDE A CLUSTER
+
 		struct _comparator {
 			bool operator() (dataitem_t *a, dataitem_t *b) {
 				return (size_t)a < (size_t)b;
