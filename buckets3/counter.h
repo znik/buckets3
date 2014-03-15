@@ -9,6 +9,8 @@
 #define PROXIMITY_SIZE		64
 #define STREAM_COUNT		10
 
+// TODO: stream count
+
 static struct _scounter {
 	void ref(size_t addr) {
 		for (stream_d_t &sdt : streams) {

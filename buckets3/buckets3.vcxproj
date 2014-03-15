@@ -65,6 +65,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="counter.h" />
     <ClInclude Include="datatypes.h" />
     <ClInclude Include="definitions.h" />
     <ClInclude Include="layout.h" />
