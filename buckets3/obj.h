@@ -116,17 +116,6 @@ public:
 
 		_add_dataitem_5(di);
 	};
-/*
-	void print() {
-		for (typename virtual_buckets_t::const_iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
-			const cluster_t &c = it->second;
-			printf("Bucket: %s\n", it->first.c_str());
-			for (unsigned i = 0; i < c.size(); ++i) {
-				c[i]->print();
-			}
-		}
-	}
-*/
 
 	void make_layout_3() {
 		for (typename hash_and_vbuckets_t::iterator it = vbuckets.begin(); vbuckets.end() != it; ++it) {
@@ -139,9 +128,6 @@ public:
 			_comparator(const std::vector<f_clusterize> &_clusterize) : clusterize(_clusterize) {};
 
 			bool operator() (dataitem_t *a, dataitem_t *b) {
-				//if (a->type_hash != b->type_hash)
-				//	return a->type_hash > b->type_hash;
-
 				for (int i = N - 1; i >= 0; --i) {
 					if (clusterize[i](a) != clusterize[i](b))
 						return clusterize[i](a) > clusterize[i](b);
@@ -155,9 +141,6 @@ public:
 				std::sort(it2->second.begin(), it2->second.end(), comparator);
 			}
 		}
-
-
-
 
 #ifdef _PRINT_LAYOUT
 			printf("LAYOUT:\n\n");
@@ -289,14 +272,6 @@ public:
 #else
 		printf("m_dataSize=%u, layout.size=%u\n", m_datasize, datatotal - m_datasize);
 		layout = new char[datatotal];
-		
-		//size_t ch = 20;
-		//size_t left = 0;
-		//while(left < datatotal - ch - 10) {
-		//	new (layout + left) char[ch]; 
-		//	left += ch;
-		//}
-		//layout = static_cast<char*>(malloc(datatotal));
 #endif
 		// Fill the file header
 		layout_file_header_begin *hdr = reinterpret_cast<layout_file_header_begin*>(layout);
@@ -440,31 +415,24 @@ public:
 				for (int k = 0; k < lvl3_list->count; ++k) {
 
 					item_offset_t item_off = lvl3_list->items[k];
-					//printf("item_off=%u\n", item_off);
-					dataitem_t *item = reinterpret_cast<dataitem_t*>(reinterpret_cast<char*>(layout) + item_off);
-					
-					//dataitem_t *newItem = (dataitem_t*)new char[type_index->second];
-					//memcpy(newItem, item, type_index->second); 
-					cluster_id cid = clusterize[i](item);		
-					m_maps[i][(unsigned)type_index->first][cid].push_back(item/*newItem*/);
+					dataitem_t *item = reinterpret_cast<dataitem_t*>(reinterpret_cast<char*>(layout) + item_off);	
+					m_maps[i][(unsigned)type_index->first][clusterize[i](item)].push_back(item);
 #ifdef _PRINT_LAYOUT
 					item->print();
-					printf(" to maps %d\n", cid); 
+					printf(" maps to %d\n", cid); 
 #endif
 					// i - query no,
 					// j / types.size() - cluster no
 					// type_index - type no
 					// k - data item no
 				}
-
 				type_index++;
 				if (type_index == m_types.end())
 					type_index = m_types.begin();
 			}
 		}
 
-		// SORTING OF DATA ITEMS INSIDE A CLUSTER
-
+		// SORTING OF DATA ITEMS INSIDE A CLUSTER (by addresses)
 		struct _comparator {
 			bool operator() (dataitem_t *a, dataitem_t *b) {
 				return (size_t)a < (size_t)b;
@@ -570,7 +538,6 @@ public:
 	class typed_iterator {
 
 	private: // iterative members
-		//clusters_t::iterator cluster_it;
 		clusters_t::iterator cluster_it;
 		unsigned item_no;					// in cluster_t: 0 <= .. < cluster.size()
 	private: // const props of the class
@@ -609,7 +576,6 @@ public:
 			}
 
 			// reached the end of current cluster
-			//assert(cluster_it != endIt);
 			++cluster_it;
 			if (cluster_it == endIt)
 				return;
@@ -631,7 +597,6 @@ public:
 
 	void clearMaps() {
 		m_maps.clear();
-		//delete layout;
 	}
 
 	template <typename Tt>
