@@ -25,7 +25,7 @@ const TCHAR *mappedFile = TEXT("mapped.file");
 extern unsigned hashing;
 
 
-//#define _PRINT_LAYOUT
+#define _PRINT_LAYOUT
 
 // Every dataitem should be derived from this interface.
 struct dataitem_t {
@@ -65,7 +65,7 @@ namespace {
 		unsigned u[N];
 
 		void print() const {
-			for (unsigned i = 0; i < N; ++i) {
+			for (int i = N - 1; i >= 0; --i) {
 				printf("%u.", u[i]);
 			}
 			printf("\n");
@@ -167,7 +167,7 @@ public:
 					const signature_t<N> &s = it2->first;
 					s.print();
 					const cluster_t &c = it2->second;
-					for (unsigned i = 0; i < c.size(); ++i) {
+					for (int i = c.size() - 1; i >= 0; --i) {
 						c[i]->print();
 						printf("\n");
 					}
@@ -347,7 +347,7 @@ public:
 					++it2) {
 					list_t* list = reinterpret_cast<list_t*>(layout + third_lvl_table_offset + lvl3_tbl[num]);
 					list->count = it2->second.size();
-					for (int b = 0; b < list->count; ++b) {
+					for (int b = list->count - 1; b >= 0; --b) {
 						list->items[b] = it2->second[b] + c_offset_dataitems;
 					}
 			//		assert(sizeof(item_offset_t) * it2->second.size() + sizeof(list_t) ==
@@ -357,14 +357,21 @@ public:
 			}
 		}
 
+#ifdef _PRINT_LAYOUT
+		printf("\nHOW DATA IS PLACED ON DISK...\n");
+#endif
 		// Copy data items
 		char *data = layout + c_offset_dataitems;
 		size_t off_of_item = 0;
 		for (typename hash_and_vbuckets_t::reverse_iterator it = vbuckets.rbegin(); vbuckets.rend() != it; ++it) {
 			for (typename virtual_buckets_t::const_iterator it2 = it->second.begin(); it->second.end() != it2; ++it2) {
 				const cluster_t &c = it2->second;
-				for (unsigned i = 0; i < c.size(); ++i) {
+				for (int i = c.size() - 1; i >= 0 ; --i) {
 					memcpy(data + off_of_item, c[i], c[i]->type_size);
+#ifdef _PRINT_LAYOUT
+					c[i]->print();
+					printf("->%X \n", data + off_of_item);
+#endif
 					off_of_item += c[i]->type_size;
 				}
 			}
@@ -418,6 +425,9 @@ public:
 			sizeof(*hdr) + hdr->dataitem_types_count * sizeof(item_type_desc_t));
 		
 		m_maps.resize(hdr2->distributions_count);
+#ifdef _PRINT_LAYOUT
+		printf("\nREADING FROM DISK:\n");
+#endif
 		for (int i = 0; i < hdr2->distributions_count; ++i) {
 			list_offset_t lvl2_list_off = hdr2->dist_list_offset[i];
 			list_t *lvl2_list = reinterpret_cast<list_t*>(reinterpret_cast<char*>(layout) + lvl2_list_off);
@@ -437,7 +447,10 @@ public:
 					//memcpy(newItem, item, type_index->second); 
 					cluster_id cid = clusterize[i](item);		
 					m_maps[i][(unsigned)type_index->first][cid].push_back(item/*newItem*/);
-
+#ifdef _PRINT_LAYOUT
+					item->print();
+					printf(" to maps %d\n", cid); 
+#endif
 					// i - query no,
 					// j / types.size() - cluster no
 					// type_index - type no
@@ -449,6 +462,53 @@ public:
 					type_index = m_types.begin();
 			}
 		}
+
+		// SORTING OF DATA ITEMS INSIDE A CLUSTER
+		struct _comparator {
+			bool operator() (dataitem_t *a, dataitem_t *b) {
+				return (size_t)a < (size_t)b;
+			}
+		} comparator;
+
+		for (unsigned i1 = 0; i1 < m_maps.size(); ++i1) {
+			for (clusters_and_types_t::iterator i2 = m_maps[i1].begin(); i2 != m_maps[i1].end(); ++i2) {
+				for (clusters_t::iterator i3 = i2->second.begin(); i3 != i2->second.end(); ++i3) {
+					cluster_t &c = i3->second;
+					std::sort(c.begin(), c.end(), comparator);
+				}
+			}
+		}
+
+		// SORTING OF CLUSTERS
+		maps_t newmap(m_maps.size());
+		for (unsigned i1 = 0; i1 < m_maps.size(); ++i1) {
+			for (clusters_and_types_t::iterator i2 = m_maps[i1].begin(); i2 != m_maps[i1].end(); ++i2) {
+				for (clusters_t::iterator i3 = i2->second.begin(); i3 != i2->second.end(); ++i3) {
+					newmap[i1][i2->first][(size_t)i3->second[0]] = i3->second;
+				}
+			}
+		}
+
+		m_maps = newmap;
+
+#ifdef _PRINT_LAYOUT
+		printf("\nQUERIES\n");
+		for (unsigned i1 = 0; i1 < m_maps.size(); ++i1) {
+			printf("QUERY#%d\n", i1);
+			for (clusters_and_types_t::iterator i2 = m_maps[i1].begin(); i2 != m_maps[i1].end(); ++i2) {
+				printf("\tTYPE:%u\n", i2->first);
+				for (clusters_t::iterator i3 = i2->second.begin(); i3 != i2->second.end(); ++i3) {
+					printf("\t\tCLUSTER#%d\n", i3->first);
+					const cluster_t &c = i3->second;
+					for (unsigned i4 = 0; i4 < c.size(); ++i4) {
+						printf("\t\t\t");
+						c[i4]->print();
+						printf("\n");
+					}
+				}
+			}
+		}
+#endif
 
 		printf("Layout loaded.\n");
 	}

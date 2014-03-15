@@ -24,9 +24,9 @@
 
 //#define NATIVE_ADJLIST
 
-unsigned dataset = 1000;
+unsigned dataset = 10;
 unsigned dataload = 1;
-unsigned hashing = 2;
+unsigned hashing = 5;
 
 
 // Clusterize Functions
