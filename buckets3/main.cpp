@@ -22,11 +22,11 @@
 #endif
 
 
-//#define NATIVE_ADJLIST
+#define NATIVE_ADJLIST
 
-unsigned dataset = 10;
+unsigned dataset = 1000000;
 unsigned dataload = 1;
-unsigned hashing = 5;
+unsigned hashing = 50000000;
 
 
 // Clusterize Functions
@@ -63,30 +63,11 @@ cluster_id cluster2(dataitem_t *i) {
 	return -1;
 }
 
-cluster_id cluster3(dataitem_t *i) {
-	edge_t *e;
-	vertex_t *v;
-
-	if (!!(e = i->get<edge_t>())) {
-		return e->src;
-	}
-
-	if (!!(v = i->get<vertex_t>())) {
-		return v->id;
-	}
-
-	assert(false && "wrong data item is passed to cluster2 function" && typeid(i).name());
-	return -1;
-}
-
 
 const f_clusterize f2[] = {cluster2, cluster1};
 typedef fmem<sizeof(f2)/sizeof(f2[0])> layout_t;
 layout_t l(f2);
 
-//const f_clusterize f2[] = {cluster3};
-//typedef fmem<sizeof(f2)/sizeof(f2[0])> layout_t;
-//layout_t l(f2);
 
 
 void load_data() {
@@ -122,13 +103,13 @@ void load_data() {
 		l.put(e);
 		e_num++;
 		if (v[e.src] == 0) {
-			vertex_t v1(e.src, rand() % 40);
+			vertex_t v1(e.src, INFINITE);
 			l.put(v1);
 			v[e.src] = 1;
 			v_num++;
 		}
 		if (v[e.dst] == 0) {
-			vertex_t v1(e.dst, rand() % 40);
+			vertex_t v1(e.dst, INFINITE);
 			l.put(v1);
 			v[e.dst] = 1;
 			v_num++;
@@ -177,13 +158,13 @@ void load_data_adjlist(adjlist2 &al2) {
 		al2.push(new edge_t(e));
 		e_num++;
 		if (v[e.src] == 0) {
-			vertex_t v1(e.src, rand() % 40);
+			vertex_t v1(e.src, INFINITE);
 			al2.push(new vertex_t(v1));
 			v[e.src] = 1;
 			v_num++;
 		}
 		if (v[e.dst] == 0) {
-			vertex_t v1(e.dst, rand() % 40);
+			vertex_t v1(e.dst, INFINITE);
 			al2.push(new vertex_t(v1));
 			v[e.dst] = 1;
 			v_num++;
@@ -276,61 +257,121 @@ int main(int argc, char *argv[]) {
 	const unsigned vcount = al2.vertices.size();
 	printf("vcount=%u\n", vcount);
 
+	std::multimap<unsigned, vertex_t*> Q_orig;
+	std::map<unsigned, vertex_t*> vertex_by_id;
+
+	for (vertex_t* v : al2.vertices) {
+		vertex_by_id[v->id] = v;
+		Q_orig.insert(std::make_pair(v->val, v));
+	}
+
+	std::multimap<unsigned, vertex_t*> Q;
+	int loop;
+	std::multimap<unsigned, vertex_t*>::iterator source_it;
+
 	time_t t1 = time(0);
 
 #ifndef _WIN32
 	likwid_markerStartRegion("Execution");
 #endif
-	for (unsigned loop = 0; loop < dataload; ++loop)
-	for (unsigned i = 0; i < vcount; ++i) {
-		
-#ifdef _PRINT_LAYOUT
-		printf("-------------------------------------------------------------\n");
-		al2.vertices[i]->print();
-		scounter.ref((size_t)al2.vertices[i]);
-#endif
-#ifdef _PRINT_LAYOUT
-		printf("\n");
-#endif
-		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
-		int sum = 0;
 
-		for (unsigned j = 0; j < in_edges.size(); ++j) {
-#ifdef _PRINT_LAYOUT
-			in_edges[j]->print();
-			scounter.ref((size_t)in_edges[j]);
-#endif
-			sum += in_edges[j]->val;
-#ifdef _PRINT_LAYOUT
-			printf("\n");
-#endif
-		}
-#ifdef _PRINT_LAYOUT
-		printf("--><---\n");
-#endif
-		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
+	for (vertex_t* v : al2.vertices) {
+		v->val = INFINITE;
+	}
 
-		int count = out_edges.size();
-		for (unsigned j = 0; j < out_edges.size(); ++j) {
+	Q = Q_orig;
+	source_it = Q.begin();
+	int n = loop;
+	while (n--) { ++source_it; };
 
-#ifdef _PRINT_LAYOUT
-			out_edges[j]->print();
-			scounter.ref((size_t)out_edges[j]);
-#endif
-			out_edges[j]->val = sum / count;
-#ifdef _PRINT_LAYOUT
-			printf("\n");
-#endif
+	vertex_t *source = source_it->second;
+	source->val = 0;
+
+	Q.erase(source_it);
+	Q.insert(std::make_pair(source->val, source));
+
+	for (loop = 0; loop < dataload; ++loop) {
+
+		while(!Q.empty()) {
+			vertex_t *u = Q.begin()->second;
+			Q.erase(Q.begin());
+			if (INFINITE == u->val)
+				break;
+			for (edge_t *e : al2.out_edges[u]) {
+				vertex_t *v = vertex_by_id[e->dst];
+				unsigned distance = u->val + e->val;
+				if (distance < v->val) {
+					std::multimap<unsigned, vertex_t*>::iterator it = Q.find(v->val);
+					while (it != Q.end() && it->first == v->val && it->second != v) { ++it; };
+					assert(it != Q.end() && "Vertex not found... :(");
+					Q.erase(it);
+					v->val = distance;
+					Q.insert(std::make_pair(v->val, v));
+				}
+			}
+			for (edge_t *e : al2.in_edges[u]) {
+				vertex_t *v = vertex_by_id[e->src];
+				unsigned distance = u->val + e->val;
+				if (distance < v->val) {
+					std::multimap<unsigned, vertex_t*>::iterator it = Q.find(v->val);
+					while (it != Q.end() && it->first == v->val && it->second != v) { ++it; };
+					assert(it != Q.end() && "Vertex not found... :(");
+					Q.erase(it);
+					v->val = distance;
+					Q.insert(std::make_pair(v->val, v));
+				}
+			}
 		}
 	}
-#ifndef _WIN32
-	likwid_markerStopRegion("Execution");	
-#endif
+//	for (unsigned i = 0; i < vcount; ++i) {
+//		
+//#ifdef _PRINT_LAYOUT
+//		printf("-------------------------------------------------------------\n");
+//		al2.vertices[i]->print();
+//		scounter.ref((size_t)al2.vertices[i]);
+//#endif
+//#ifdef _PRINT_LAYOUT
+//		printf("\n");
+//#endif
+//		std::vector<edge_t*> &in_edges = al2.in_edges[al2.vertices[i]];
+//		int sum = 0;
+//
+//		for (unsigned j = 0; j < in_edges.size(); ++j) {
+//#ifdef _PRINT_LAYOUT
+//			in_edges[j]->print();
+//			scounter.ref((size_t)in_edges[j]);
+//#endif
+//			sum += in_edges[j]->val;
+//#ifdef _PRINT_LAYOUT
+//			printf("\n");
+//#endif
+//		}
+//#ifdef _PRINT_LAYOUT
+//		printf("--><---\n");
+//#endif
+//		std::vector<edge_t*> &out_edges = al2.out_edges[al2.vertices[i]];
+//
+//		int count = out_edges.size();
+//		for (unsigned j = 0; j < out_edges.size(); ++j) {
+//
+//#ifdef _PRINT_LAYOUT
+//			out_edges[j]->print();
+//			scounter.ref((size_t)out_edges[j]);
+//#endif
+//			out_edges[j]->val = sum / count;
+//#ifdef _PRINT_LAYOUT
+//			printf("\n");
+//#endif
+//		}
+//	}
+//#ifndef _WIN32
+//	likwid_markerStopRegion("Execution");	
+//#endif
 
 	time_t t2 = time(0);
 
 	printf("Elapsed time: %lf\n", difftime(t2, t1));
-	scounter.print_summary();
+	//scounter.print_summary();
 #ifndef _WIN32
 	likwid_markerClose();
 #endif
