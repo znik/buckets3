@@ -26,7 +26,7 @@
 #endif
 
 
-//#define NATIVE_ADJLIST
+#define NATIVE_ADJLIST
 
 unsigned dataset = 1000000;
 unsigned dataload = 1;
@@ -294,29 +294,38 @@ int main(int argc, char *argv[]) {
 
 		while(!Q.empty()) {
 
-#ifndef _WIN32
-	likwid_markerStartRegion("Execution");
-#endif
+//#ifndef _WIN32
+//	likwid_markerStartRegion("Execution");
+//#endif
 
 
 			vertex_t *u = Q.begin()->second;
 
+//#ifndef _WIN32
+//	likwid_markerStopRegion("Execution");
+//#endif
+
+
+			Q.erase(Q.begin());
+#ifndef _WIN32
+	likwid_markerStartRegion("Execution");
+#endif
+
+			if (INFINITE == u->val)
+				break;
 #ifndef _WIN32
 	likwid_markerStopRegion("Execution");
 #endif
 
 
-			Q.erase(Q.begin());
-			if (INFINITE == u->val)
-				break;
 			for (edge_t *e : al2.out_edges[u]) {
 
+				vertex_t *v = vertex_by_id[e->dst];
 #ifndef _WIN32
 	likwid_markerStartRegion("Execution");
 #endif
 
 
-				vertex_t *v = vertex_by_id[e->dst];
 				unsigned distance = u->val + e->val;
 				unsigned v_val = v->val;
 #ifndef _WIN32
@@ -326,7 +335,7 @@ int main(int argc, char *argv[]) {
 
 				if (distance < v_val) {
 					std::multimap<unsigned, vertex_t*>::iterator it = Q.find(v->val);
-					while (it != Q.end() && it->first == v->val && it->second != v) { ++it; };
+					while (it != Q.end() && it->first == v_val && it->second != v) { ++it; };
 					assert(it != Q.end() && "Vertex not found... :(");
 					Q.erase(it);
 
@@ -347,12 +356,12 @@ int main(int argc, char *argv[]) {
 			}
 			for (edge_t *e : al2.in_edges[u]) {
 
+				vertex_t *v = vertex_by_id[e->src];
 #ifndef _WIN32
 	likwid_markerStartRegion("Execution");
 #endif
 
 
-				vertex_t *v = vertex_by_id[e->src];
 				unsigned distance = u->val + e->val;
 				unsigned v_val = v->val;
 
@@ -363,7 +372,7 @@ int main(int argc, char *argv[]) {
 
 				if (distance < v_val) {
 					std::multimap<unsigned, vertex_t*>::iterator it = Q.find(v->val);
-					while (it != Q.end() && it->first == v->val && it->second != v) { ++it; };
+					while (it != Q.end() && it->first == v_val && it->second != v) { ++it; };
 					assert(it != Q.end() && "Vertex not found... :(");
 					Q.erase(it);
 	
