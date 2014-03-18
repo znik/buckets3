@@ -21,8 +21,12 @@
 #include <likwid.h>
 #endif
 
+#ifndef _WIN32
+#define INFINITE	(unsigned)-1
+#endif
 
-#define NATIVE_ADJLIST
+
+//#define NATIVE_ADJLIST
 
 unsigned dataset = 1000000;
 unsigned dataload = 1;
@@ -99,7 +103,7 @@ void load_data() {
 		e.src = nul;
 		ss >> nul;
 		e.dst = nul;
-		e.val = rand() % 40;
+		e.val = 1; //rand() % 40;
 		l.put(e);
 		e_num++;
 		if (v[e.src] == 0) {
@@ -154,7 +158,7 @@ void load_data_adjlist(adjlist2 &al2) {
 		e.src = nul;
 		ss >> nul;
 		e.dst = nul;
-		e.val = rand() % 40;
+		e.val = 1; //rand() % 40;
 		al2.push(new edge_t(e));
 		e_num++;
 		if (v[e.src] == 0) {
@@ -271,10 +275,6 @@ int main(int argc, char *argv[]) {
 
 	time_t t1 = time(0);
 
-#ifndef _WIN32
-	likwid_markerStartRegion("Execution");
-#endif
-
 	for (vertex_t* v : al2.vertices) {
 		v->val = INFINITE;
 	}
@@ -293,31 +293,92 @@ int main(int argc, char *argv[]) {
 	for (loop = 0; loop < dataload; ++loop) {
 
 		while(!Q.empty()) {
+
+#ifndef _WIN32
+	likwid_markerStartRegion("Execution");
+#endif
+
+
 			vertex_t *u = Q.begin()->second;
+
+#ifndef _WIN32
+	likwid_markerStopRegion("Execution");
+#endif
+
+
 			Q.erase(Q.begin());
 			if (INFINITE == u->val)
 				break;
 			for (edge_t *e : al2.out_edges[u]) {
+
+#ifndef _WIN32
+	likwid_markerStartRegion("Execution");
+#endif
+
+
 				vertex_t *v = vertex_by_id[e->dst];
 				unsigned distance = u->val + e->val;
-				if (distance < v->val) {
+				unsigned v_val = v->val;
+#ifndef _WIN32
+	likwid_markerStopRegion("Execution");
+#endif
+
+
+				if (distance < v_val) {
 					std::multimap<unsigned, vertex_t*>::iterator it = Q.find(v->val);
 					while (it != Q.end() && it->first == v->val && it->second != v) { ++it; };
 					assert(it != Q.end() && "Vertex not found... :(");
 					Q.erase(it);
+
+#ifndef _WIN32
+	likwid_markerStartRegion("Execution");
+#endif
+
+
 					v->val = distance;
+
+#ifndef _WIN32
+	likwid_markerStopRegion("Execution");
+#endif
+
+
 					Q.insert(std::make_pair(v->val, v));
 				}
 			}
 			for (edge_t *e : al2.in_edges[u]) {
+
+#ifndef _WIN32
+	likwid_markerStartRegion("Execution");
+#endif
+
+
 				vertex_t *v = vertex_by_id[e->src];
 				unsigned distance = u->val + e->val;
-				if (distance < v->val) {
+				unsigned v_val = v->val;
+
+#ifndef _WIN32
+	likwid_markerStopRegion("Execution");
+#endif
+
+
+				if (distance < v_val) {
 					std::multimap<unsigned, vertex_t*>::iterator it = Q.find(v->val);
 					while (it != Q.end() && it->first == v->val && it->second != v) { ++it; };
 					assert(it != Q.end() && "Vertex not found... :(");
 					Q.erase(it);
+	
+#ifndef _WIN32
+	likwid_markerStartRegion("Execution");
+#endif
+
+	
 					v->val = distance;
+
+#ifndef _WIN32
+	likwid_markerStopRegion("Execution");
+#endif
+
+
 					Q.insert(std::make_pair(v->val, v));
 				}
 			}
